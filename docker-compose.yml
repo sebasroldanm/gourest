@@ -1,0 +1,95 @@
+services:
+  app:
+    build:
+      context: ./docker/php
+      dockerfile: Dockerfile
+    container_name: gourest_app
+    restart: unless-stopped
+    volumes:
+      - ./src:/var/www/html
+      - ./docker/php/xdebug.ini:/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
+      - ./docker/php/php.ini:/usr/local/etc/php/conf.d/custom.ini
+    environment:
+      - PHP_IDE_CONFIG=serverName=Gourest
+      - XDEBUG_MODE=develop,debug
+      - XDEBUG_CONFIG=client_host=host.docker.internal client_port=9003 start_with_request=yes
+      - DB_HOST=mysql
+      - DB_DATABASE=gourest
+      - DB_USERNAME=gourest
+      - DB_PASSWORD=gourest_secret
+      - REDIS_HOST=redis
+      - REDIS_PASSWORD=null
+      - REDIS_PORT=6379
+    networks:
+      - gourest-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "php-fpm -t || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  nginx:
+    image: nginx:stable-alpine
+    container_name: gourest_nginx
+    restart: unless-stopped
+    volumes:
+      - ./src:/var/www/html
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+    ports:
+      - "8077:80"
+    depends_on:
+      - app
+    networks:
+      - gourest-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  mysql:
+    image: mysql:8.0
+    container_name: gourest_mysql
+    restart: unless-stopped
+    ports:
+      - "3326:3306"
+    environment:
+      MYSQL_DATABASE: gourest
+      MYSQL_ROOT_PASSWORD: root_gourest
+      MYSQL_USER: gourest
+      MYSQL_PASSWORD: gourest_secret
+    volumes:
+      - ./docker/data/mysql:/var/lib/mysql
+    networks:
+      - gourest-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:alpine
+    container_name: gourest_redis
+    restart: unless-stopped
+    ports:
+      - "6309:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - ./docker/data/redis:/data
+    networks:
+      - gourest-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  gourest-network:
+    driver: bridge
