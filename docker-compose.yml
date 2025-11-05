@@ -4,7 +4,7 @@ services:
       context: ./docker/php
       dockerfile: Dockerfile
     container_name: gourest_app
-    restart: unless-stopped
+    restart: no
     volumes:
       - ./src:/var/www/html
       - ./docker/php/xdebug.ini:/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
@@ -15,8 +15,8 @@ services:
       - XDEBUG_CONFIG=client_host=host.docker.internal client_port=9003 start_with_request=yes
       - DB_HOST=mysql
       - DB_DATABASE=gourest
-      - DB_USERNAME=gourest
-      - DB_PASSWORD=gourest_secret
+      - DB_USERNAME=root
+      - DB_PASSWORD=root_gourest
       - REDIS_HOST=redis
       - REDIS_PASSWORD=null
       - REDIS_PORT=6379
